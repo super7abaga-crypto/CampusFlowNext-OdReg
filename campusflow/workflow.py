@@ -16,22 +16,23 @@ def find_ticket(tickets, ticket_id):
     raise ValueError(f"Ticket {wanted} was not found.")
 
 
+def normalize_name(name):
+    """Normalize a staff name for comparison."""
+    return (
+        name.strip()
+        .casefold()
+        .replace("(hoc)", "")
+        .strip()
+    )
+
+
 def assign_ticket(tickets, ticket_id, assignee):
     """Assign a ticket to an available staff member using flexible name matching."""
 
     ticket = find_ticket(tickets, ticket_id)
 
-    if not assignee or not assignee.strip():
+    if not isinstance(assignee, str) or not assignee.strip():
         raise ValueError("Staff name cannot be empty.")
-
-    def normalize_name(name):
-        """Normalize a staff name for comparison."""
-        return (
-            name.strip()
-            .casefold()
-            .replace("(hoc)", "")
-            .strip()
-        )
 
     entered_name = normalize_name(assignee)
 
@@ -99,8 +100,18 @@ def update_ticket_status(tickets, ticket_id, status):
     ticket = find_ticket(tickets, ticket_id)
     previous_status = ticket.get("status")
 
+    # Prevent an unassigned ticket from moving to in_progress.
+    if status == "in_progress" and not ticket.get("assigned_to"):
+        raise ValueError(
+            f"Ticket {ticket_id} cannot move to in_progress "
+            "because it has not been assigned to a staff member. "
+            "Please assign the ticket first."
+        )
+
+    # Update the status only after validation succeeds.
     ticket["status"] = status
 
+    # Record the change in ticket history.
     if previous_status != status:
         record_ticket_history(
             ticket,
