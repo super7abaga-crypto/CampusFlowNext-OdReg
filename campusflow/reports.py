@@ -20,14 +20,57 @@ def summarize_tickets(tickets):
 
 
 def format_ticket(ticket):
-    """Format a ticket as a readable single-line summary."""
-    assignee = ticket.get("assigned_to") or "Unassigned"
-    return (
-        f"{ticket.get('id', '?')} | {ticket.get('title', '(no title)')} | "
-        f"{ticket.get('category', '?')} | urgency: {ticket.get('urgency', '?')} | "
-        f"priority: {ticket.get('priority', '?')} | status: {ticket.get('status', '?')} | "
-        f"affected users: {ticket.get('affected_users', '?')} | assigned to: {assignee}"
-    )
+    """Format a ticket with creation time and activity history."""
+
+    from datetime import datetime
+
+    created_at = ticket.get("created_at", "Not recorded")
+
+    if created_at != "Not recorded":
+        try:
+            timestamp = datetime.fromisoformat(created_at)
+            created_at = timestamp.strftime("%d-%m-%Y %I:%M:%S %p")
+        except (ValueError, TypeError):
+            pass
+
+    lines = [
+        f"{ticket['id']} | "
+        f"{ticket['title']} | "
+        f"{ticket['category']} | "
+        f"urgency: {ticket['urgency']} | "
+        f"priority: {ticket['priority']} | "
+        f"status: {ticket['status']} | "
+        f"affected users: {ticket['affected_users']} | "
+        f"assigned to: {ticket.get('assigned_to') or 'Unassigned'} | "
+        f"created at: {created_at}"
+    ]
+
+    history = ticket.get("history", [])
+
+    if history:
+        lines.append("")
+        lines.append("History:")
+
+        for event in history:
+            timestamp = event.get("timestamp", "Unknown time")
+
+            try:
+                timestamp = datetime.fromisoformat(timestamp)
+                timestamp = timestamp.strftime("%d-%m-%Y %I:%M:%S %p")
+            except (ValueError, TypeError):
+                pass
+
+            action = event.get("action", "Unknown action")
+            details = event.get("details", "")
+
+            lines.append(
+                f"  {timestamp} | "
+                f"{ticket['id']} | "
+                f"{action} | "
+                f"{details}"
+            )
+
+    return "\n".join(lines)
 
 
 def format_report(tickets):

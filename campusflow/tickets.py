@@ -1,5 +1,6 @@
 """Ticket validation, priority calculation, and creation."""
 
+from datetime import datetime
 ALLOWED_CATEGORIES = {"Network", "Hardware", "Software", "Other"}
 ALLOWED_URGENCIES = {"low", "medium", "high"}
 
@@ -67,6 +68,7 @@ def create_ticket(tickets, title, category, urgency, affected_users):
         "priority": calculate_priority(urgency, affected_users),
         "status": "open",
         "assigned_to": None,
+        "created_at": datetime.now().astimezone().isoformat(timespec="seconds"),
     }
     tickets.append(ticket)
     return ticket

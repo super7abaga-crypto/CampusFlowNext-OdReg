@@ -1,7 +1,7 @@
 import unittest
 
 from campusflow.tickets import calculate_priority, create_ticket, generate_ticket_id, validate_ticket_details
-
+from campusflow.tickets import create_ticket
 
 class PriorityTests(unittest.TestCase):
     def test_critical_for_high_and_ten_users(self):
@@ -36,6 +36,20 @@ class PriorityTests(unittest.TestCase):
         for value in (0, -1, 2.5, "3", True):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 calculate_priority("low", value)
+            
+def test_new_ticket_has_creation_timestamp(self):
+    tickets = []
+
+    ticket = create_ticket(
+        tickets,
+        "Campus Wi-Fi outage",
+        "Network",
+        "high",
+        12,
+    )
+
+    self.assertIn("created_at", ticket)
+    self.assertTrue(ticket["created_at"])
 
 
 class TicketCreationTests(unittest.TestCase):

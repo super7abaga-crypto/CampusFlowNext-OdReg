@@ -1,6 +1,8 @@
 import unittest
+from unittest.mock import patch
 
 from campusflow.tickets import create_ticket
+from campusflow.workflow import update_ticket_status
 from campusflow.workflow import assign_ticket, find_ticket, update_ticket_status
 
 
@@ -17,8 +19,49 @@ class WorkflowTests(unittest.TestCase):
             find_ticket(self.tickets, "T999")
 
     def test_assign_ticket(self):
-        ticket = assign_ticket(self.tickets, "T001", "  Ada  ")
+        with patch(
+            "campusflow.workflow.STAFF_MEMBERS",
+            [{"name": "Ada", "speciality": "Network", "available": True}],
+        ):
+            ticket = assign_ticket(self.tickets, "T001", "  Ada  ")
+
         self.assertEqual(ticket["assigned_to"], "Ada")
+
+    def test_assignment_is_recorded_in_history(self):
+        with patch(
+            "campusflow.workflow.STAFF_MEMBERS",
+            [{"name": "John", "speciality": "Network", "available": True}],
+        ):
+            ticket = assign_ticket(self.tickets, "T001", "John")
+
+        self.assertEqual(ticket["assigned_to"], "John")
+        self.assertTrue(ticket["history"])
+        self.assertEqual(ticket["history"][-1]["action"], "assigned")
+
+    def test_status_change_is_recorded_in_history(self):
+        tickets = []
+
+        create_ticket(
+            tickets,
+            "Campus Wi-Fi outage",
+            "Network",
+            "high",
+            12,
+        )
+
+        ticket = update_ticket_status(tickets, "T001", "in_progress")
+
+        self.assertEqual(ticket["status"], "in_progress")
+        self.assertEqual(len(ticket["history"]), 1)
+        self.assertEqual(
+        ticket["history"][0]["action"],
+        "status_changed",
+        )
+        self.assertEqual(
+            ticket["history"][0]["details"],
+            "Status changed from open to in_progress",
+        )
+        self.assertIn("timestamp", ticket["history"][0])
 
     def test_blank_assignee_is_rejected(self):
         with self.assertRaises(ValueError):

@@ -14,7 +14,18 @@ class StorageTests(unittest.TestCase):
     def test_save_and_load_round_trip(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "nested" / "tickets.json"
-            tickets = [{"id": "T001", "title": "Test", "status": "open"}]
+            tickets = [
+    {
+        "id": "T001",
+        "title": "Wi-Fi outage",
+        "category": "Network",
+        "urgency": "high",
+        "affected_users": 15,
+        "priority": "critical",
+        "status": "open",
+        "assigned_to": None,
+    }
+]
             save_tickets(tickets, path)
             self.assertEqual(load_tickets(path), tickets)
 
