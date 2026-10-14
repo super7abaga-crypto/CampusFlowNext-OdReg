@@ -137,11 +137,19 @@ class WorkflowTests(unittest.TestCase):
 
     def test_cannot_assign_closed_ticket(self):
         """A closed ticket should not be assignable."""
+
+        ticket = find_ticket(self.tickets, "T001")
+
+        # Assign the ticket before closing it.
+        ticket["assigned_to"] = "Mr. Odeh"
+
         update_ticket_status(
             self.tickets,
             "T001",
             "closed",
         )
+
+        original_assignee = ticket["assigned_to"]
 
         with self.assertRaises(ValueError):
             assign_ticket(
@@ -149,6 +157,12 @@ class WorkflowTests(unittest.TestCase):
                 "T001",
                 "Ada",
             )
+
+        # Confirm that the failed operation did not change the assignment.
+        self.assertEqual(
+            ticket["assigned_to"],
+            original_assignee,
+        )
 
     def test_update_status_normalizes_case(self):
         """Status updates should ignore case and surrounding spaces."""
@@ -194,6 +208,63 @@ class WorkflowTests(unittest.TestCase):
             )
 
         self.assertEqual(ticket["status"], "open")
+
+    def test_unassigned_ticket_cannot_be_resolved(self):
+        with self.assertRaises(ValueError):
+            update_ticket_status(
+                self.tickets,
+                "T001",
+                "resolved",
+            )
+
+        self.assertEqual(
+            find_ticket(self.tickets, "T001")["status"],
+            "open",
+        )
+
+
+    def test_unassigned_ticket_cannot_be_closed(self):
+        with self.assertRaises(ValueError):
+            update_ticket_status(
+                self.tickets,
+                "T001",
+                "closed",
+            )
+
+        self.assertEqual(
+            find_ticket(self.tickets, "T001")["status"],
+            "open",
+        )
+
+
+    def test_resolved_ticket_cannot_be_reassigned(self):
+        ticket = find_ticket(self.tickets, "T001")
+        ticket["status"] = "resolved"
+        ticket["assigned_to"] = "Mr. Odeh"
+
+        with self.assertRaises(ValueError):
+            assign_ticket(
+                self.tickets,
+                "T001",
+                "Ada",
+            )
+
+        self.assertEqual(ticket["assigned_to"], "Mr. Odeh")
+
+
+    def test_closed_ticket_cannot_be_reassigned(self):
+        ticket = find_ticket(self.tickets, "T001")
+        ticket["status"] = "closed"
+        ticket["assigned_to"] = "Mr. Odeh"
+
+        with self.assertRaises(ValueError):
+            assign_ticket(
+                self.tickets,
+                "T001",
+                "Ada",
+            )
+
+        self.assertEqual(ticket["assigned_to"], "Mr. Odeh")
 
     def test_invalid_status_is_rejected(self):
         """An unsupported status should be rejected."""

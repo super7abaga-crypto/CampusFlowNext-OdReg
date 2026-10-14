@@ -27,15 +27,25 @@ def normalize_name(name):
 
 
 def assign_ticket(tickets, ticket_id, assignee):
-    """Assign a ticket to an available staff member using flexible name matching."""
+    """Assign or reassign a ticket unless it is resolved or closed."""
 
     ticket = find_ticket(tickets, ticket_id)
 
+    # Prevent reassignment of resolved or closed tickets.
+    if ticket.get("status") in {"resolved", "closed"}:
+        raise ValueError(
+            f"Ticket {ticket_id} cannot be reassigned "
+            f"because its status is {ticket['status']}. "
+            "Reopen the ticket before changing its assignment."
+        )
+
+    # Validate the staff name.
     if not isinstance(assignee, str) or not assignee.strip():
         raise ValueError("Staff name cannot be empty.")
 
     entered_name = normalize_name(assignee)
 
+    # Find the staff member using flexible name matching.
     staff_member = next(
         (
             staff
@@ -45,6 +55,7 @@ def assign_ticket(tickets, ticket_id, assignee):
         None,
     )
 
+    # Reject names that do not match an available staff record.
     if staff_member is None:
         valid_names = ", ".join(
             staff["name"] for staff in STAFF_MEMBERS
@@ -55,29 +66,33 @@ def assign_ticket(tickets, ticket_id, assignee):
             f"Choose from: {valid_names}"
         )
 
+    # Reject unavailable staff members.
     if not staff_member.get("available", False):
         raise ValueError(
-            f"{staff_member['name']} is currently unavailable for assignment."
+            f"{staff_member['name']} is currently unavailable "
+            "for assignment."
         )
 
     previous_assignee = ticket.get("assigned_to")
+    official_name = staff_member["name"]
 
-    # Always store the official name from STAFF_MEMBERS.
-    ticket["assigned_to"] = staff_member["name"]
+    # Store the official name from STAFF_MEMBERS.
+    ticket["assigned_to"] = official_name
 
-    if previous_assignee != staff_member["name"]:
+    # Record the assignment or reassignment in ticket history.
+    if previous_assignee != official_name:
         if previous_assignee:
             record_ticket_history(
                 ticket,
                 "reassigned",
                 f"Reassigned from {previous_assignee} to "
-                f"{staff_member['name']}",
+                f"{official_name}",
             )
         else:
             record_ticket_history(
                 ticket,
                 "assigned",
-                f"Assigned to {staff_member['name']}",
+                f"Assigned to {official_name}",
             )
 
     return ticket
@@ -100,10 +115,13 @@ def update_ticket_status(tickets, ticket_id, status):
     ticket = find_ticket(tickets, ticket_id)
     previous_status = ticket.get("status")
 
-    # Prevent an unassigned ticket from moving to in_progress.
-    if status == "in_progress" and not ticket.get("assigned_to"):
+        # Prevent unassigned tickets from moving to another workflow stage.
+    if (
+        status in {"in_progress", "resolved", "closed"}
+        and not ticket.get("assigned_to")
+    ):
         raise ValueError(
-            f"Ticket {ticket_id} cannot move to in_progress "
+            f"Ticket {ticket_id} cannot move to {status} "
             "because it has not been assigned to a staff member. "
             "Please assign the ticket first."
         )
