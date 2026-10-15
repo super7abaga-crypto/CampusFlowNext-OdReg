@@ -9,6 +9,7 @@ from campusflow.workflow import (
     find_ticket,
     get_priority_queue,
     update_ticket_status,
+    search_tickets,
 )
 
 
@@ -360,6 +361,111 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(updated_ticket["status"], "in_progress")
         self.assertEqual(ticket["status"], "in_progress")
 
+    def test_search_tickets_matches_partial_title(self):
+        """Search should match part of a ticket title."""
+        create_ticket(
+            self.tickets,
+            "Network cable damaged",
+            "Network",
+            "high",
+            2,
+        )
+
+        results = search_tickets(
+            self.tickets,
+            "cable",
+            None,
+            None,
+            None,
+            None,
+        )
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["title"], "Network cable damaged")
+
+    def test_search_tickets_is_case_insensitive(self):
+        """Search should ignore capitalization."""
+        create_ticket(
+            self.tickets,
+            "Network connection is slow",
+            "Network",
+            "high",
+            3,
+        )
+
+        results = search_tickets(
+            self.tickets,
+            "NETWORK",
+            None,
+            None,
+            None,
+            None,
+        )
+
+        self.assertEqual(len(results), 2)
+
+    def test_search_tickets_combines_keyword_and_status(self):
+        """Search should apply title and status filters together."""
+        create_ticket(
+            self.tickets,
+            "Network cable damaged",
+            "Network",
+            "high",
+            2,
+        )
+
+        results = search_tickets(
+            self.tickets,
+            "network",
+            "open",
+            None,
+            None,
+            None,
+        )
+
+        self.assertEqual(len(results), 2)
+        self.assertTrue(
+            all(ticket["status"] == "open" for ticket in results)
+        )
+
+    def test_search_tickets_empty_keyword_returns_filtered_tickets(self):
+        """A whitespace-only keyword should skip title matching."""
+        results = search_tickets(
+            self.tickets,
+            "   ",
+            None,
+            None,
+            None,
+            None,
+        )
+
+        self.assertEqual(results, self.tickets)
+
+    def test_search_tickets_none_keyword_returns_filtered_tickets(self):
+        """A None keyword should skip title matching."""
+        results = search_tickets(
+            self.tickets,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+
+        self.assertEqual(results, self.tickets)
+
+    def test_search_tickets_no_match_returns_empty_list(self):
+        """A keyword absent from all titles should return no results."""
+        results = search_tickets(
+            self.tickets,
+            "printer",
+            None,
+            None,
+            None,
+            None,
+        )
+
+        self.assertEqual(results, [])
 
 if __name__ == "__main__":
     unittest.main()

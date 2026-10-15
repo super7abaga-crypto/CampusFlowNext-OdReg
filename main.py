@@ -4,9 +4,9 @@ from campusflow.reports import format_report, format_ticket
 from campusflow.storage import DEFAULT_STORAGE_PATH, load_tickets, save_tickets
 from campusflow.tickets import create_ticket
 from campusflow.staff import recommend_staff
-from campusflow.notes import make_note_adder
-from campusflow.workflow import assign_ticket, update_ticket_status
 
+from campusflow.notes import make_note_adder
+from campusflow.workflow import assign_ticket, update_ticket_status, search_tickets
 
 def ask_positive_integer(prompt):
     """Prompt until the user enters a positive whole number."""
@@ -120,7 +120,7 @@ def create_ticket_from_prompt(tickets):
 
 
 def print_menu():
-    print("\n=== OdIna-Campusflow Ticket Manager ===")
+    print("\n=== OdReg-CampusFlowNext Ticket Manager ===")
     print("1. Create a ticket")
     print("2. List tickets")
     print("3. Assign a ticket")
@@ -129,6 +129,7 @@ def print_menu():
     print("6. Save tickets")
     print("7. Reload tickets from disk")
     print("8. Recommend staff for a ticket")
+    print("9. Search tickets")
     print("0. Save and exit")
 
 
@@ -220,7 +221,11 @@ def main():
                 print("This ticket is already resolved or closed.")
                 continue
 
-            recommendation = recommend_staff(ticket, tickets)
+            try:
+                recommendation = recommend_staff(ticket, tickets)
+            except ValueError as exc:
+                print(f"Could not recommend staff: {exc}")
+                continue
 
             if recommendation is None:
                 print(
@@ -233,6 +238,75 @@ def main():
                 print(f"Name: {recommendation['name']}")
                 print(f"Speciality: {recommendation['speciality']}")
                 print("\nTo assign this person, select menu option 3.")
+
+        elif choice == "9":
+            valid_statuses = {"open", "in_progress", "resolved", "closed"}
+            valid_priorities = {"critical", "high", "medium", "low"}
+            valid_categories = {"network", "hardware", "software", "other"}
+
+            title_keyword = input("Input ticket title: ").strip()
+            if not title_keyword:
+                print("No keyword detected. Please enter a keyword.")
+                continue
+
+            input_status = input("Input preferred status (press Enter to skip): ").strip()
+            if  input_status:
+                input_status = input_status.casefold()
+                if input_status not in valid_statuses:
+                    print("Invalid status. Choose open, in_progress, resolved, or closed.")
+                    continue
+            else:
+                input_status = None
+            input_priority = input("Input preferred priority (press Enter to skip): ").strip()
+            if input_priority:
+                input_priority = input_priority.casefold()
+                if input_priority not in valid_priorities:
+                    print("Invalid priority. Choose critical, high, medium, or low.")
+                    continue
+            else:
+                input_priority = None
+
+            input_category = input("Input preferred category (press Enter to skip): ").strip()
+            if input_category:
+                input_category = input_category.casefold()
+                if input_category not in valid_categories:
+                    print("Invalid category. Choose network, hardware, software, or other.")
+                    continue
+            else:
+                input_category = None
+
+            input_assignee = input("Input assignee (press Enter to skip): ").strip()
+            if input_assignee:
+                from campusflow.staff import STAFF_MEMBERS
+
+                valid_assignees = {
+                    member["name"].strip().casefold()
+                    for member in STAFF_MEMBERS
+                }
+
+                if input_assignee.casefold() not in valid_assignees:
+                    print("Invalid assignee. Choose a recognized staff member.")
+                    continue
+
+                input_assignee = input_assignee.casefold()
+            else:
+                input_assignee = None
+            
+            searched_tickets = search_tickets(
+                tickets,
+                title_keyword,
+                input_status,
+                input_priority,
+                input_category,
+                input_assignee,
+            )
+            if searched_tickets:
+                show_tickets(searched_tickets)
+            else:
+                print(f"No tickets found matching '{title_keyword}'.")
+
+
+            
 
         elif choice == "0":
             try:
