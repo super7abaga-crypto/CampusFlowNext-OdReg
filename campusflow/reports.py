@@ -16,6 +16,30 @@ def summarize_tickets(tickets):
             report[key][value] = report[key].get(value, 0) + 1
         if not ticket.get("assigned_to"):
             report["unassigned"] += 1
+
+    open_status = report["by_status"].get("open", 0)
+    in_progress_status = report["by_status"].get("in_progress", 0)
+    unresolved_tickets = open_status + in_progress_status
+    report["unresolved"] = unresolved_tickets
+    resolved_status = report["by_status"].get("resolved", 0)
+    report["resolved"] = resolved_status
+
+    if report["total"] > 0:
+        resolved_percentage = (resolved_status / report["total"]) * 100
+        report["resolution_percentage"] = resolved_percentage
+    else:
+        report["resolution_percentage"] = 0
+
+    reopened_count = 0
+    for ticket in tickets:
+        history = ticket.get("history", [])
+        for history_entry in history:
+            action = history_entry.get("action", "Unknown action")
+            details = history_entry.get("details", "")
+            if action == "status_changed" and "Status changed from resolved to open" in details:
+                reopened_count += 1
+                break  
+    report["reopened"] = reopened_count
     return report
 
 
@@ -84,4 +108,9 @@ def format_report(tickets):
         else:
             lines.append("  - None")
     lines.append(f"Unassigned tickets: {report['unassigned']}")
+    lines.append(f"Unresolved tickets: {report['unresolved']}")
+    lines.append(f"Resolved tickets: {report['resolved']}")
+    lines.append(f"Resolution percentage: {report['resolution_percentage']:.2f}%")
+    lines.append(f"Reopened tickets: {report['reopened']}")
+
     return "\n".join(lines)

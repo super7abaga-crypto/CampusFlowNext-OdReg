@@ -232,6 +232,26 @@ def filter_and_sort_tickets(
         ),
     )
 
+
+def search_tickets(tickets, keyword, status, priority, category, assigned_to):
+    filtered_ticket = filter_and_sort_tickets(tickets, status, priority, category, assigned_to)
+    if keyword is None:
+        return filtered_ticket
+
+    word = keyword.strip()
+    normalised_keyword = word.casefold()
+    search_result = []
+    if normalised_keyword == "":
+            return filtered_ticket
+
+    for ticket in filtered_ticket:
+        ticket_title = ticket["title"].casefold()
+
+        if normalised_keyword in ticket_title:
+            search_result.append(ticket)
+    return search_result
+
+    
 def record_ticket_history(ticket, action, details):
     """Record an event in a ticket's history."""
 
