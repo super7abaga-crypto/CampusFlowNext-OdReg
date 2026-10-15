@@ -4,8 +4,9 @@ from campusflow.reports import format_report, format_ticket
 from campusflow.storage import DEFAULT_STORAGE_PATH, load_tickets, save_tickets
 from campusflow.tickets import create_ticket
 from campusflow.staff import recommend_staff
-from campusflow.workflow import assign_ticket, update_ticket_status, search_tickets
 
+from campusflow.notes import make_note_adder
+from campusflow.workflow import assign_ticket, update_ticket_status, search_tickets
 
 def ask_positive_integer(prompt):
     """Prompt until the user enters a positive whole number."""
@@ -139,6 +140,7 @@ def main():
         print(f"Could not load saved tickets: {exc}")
         print("Fix the data file before starting so saved data is not overwritten.")
         return
+    add_note = make_note_adder(tickets)
 
     print(
         f"Loaded {len(tickets)} ticket(s) from "

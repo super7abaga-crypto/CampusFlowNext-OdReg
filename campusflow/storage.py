@@ -1,3 +1,4 @@
+
 """JSON persistence for ticket collections."""
 
 import json
@@ -11,6 +12,49 @@ from campusflow.tickets import (
 DEFAULT_STORAGE_PATH = Path("data/tickets.json")
 
 ALLOWED_STATUSES = {"open", "in_progress", "resolved"}
+
+
+def validate_stored_notes(ticket_id, notes):
+    """Validate notes attached to a ticket."""
+    if not isinstance(notes, list):
+        raise ValueError(f"Ticket {ticket_id} notes must be a list.")
+
+    seen_ids = set()
+
+    for note in notes:
+        if not isinstance(note, dict):
+            raise ValueError(f"Ticket {ticket_id} contains an invalid note.")
+
+        note_id = note.get("note_id")
+        author = note.get("author")
+        message = note.get("message")
+
+        if (
+            not isinstance(note_id, str)
+            or not note_id.startswith("N")
+            or not note_id[1:].isdigit()
+            or int(note_id[1:]) < 1
+        ):
+            raise ValueError(f"Ticket {ticket_id} has an invalid note ID.")
+
+        if note_id in seen_ids:
+            raise ValueError(
+                f"Ticket {ticket_id} has duplicate note IDs."
+            )
+        seen_ids.add(note_id)
+
+        if not isinstance(author, str) or not author.strip():
+            raise ValueError(
+                f"Ticket {ticket_id} has an invalid note author."
+            )
+
+        if (
+            not isinstance(message, str)
+            or not 5 <= len(message.strip()) <= 300
+        ):
+            raise ValueError(
+                f"Ticket {ticket_id} has an invalid note message."
+            )
 
 
 def save_tickets(tickets, filepath=DEFAULT_STORAGE_PATH):
@@ -38,6 +82,7 @@ def validate_stored_tickets(data):
         raise ValueError("Ticket file must contain a JSON list.")
 
     seen_ids = set()
+    seen_note_ids = set()
 
     for index, ticket in enumerate(data):
         if not isinstance(ticket, dict):
@@ -110,6 +155,23 @@ def validate_stored_tickets(data):
             )
 
         assigned_to = ticket["assigned_to"]
+
+        # Older saved tickets without notes are treated as having no notes.
+        notes = ticket.get("notes", [])
+        validate_stored_notes(ticket_id, notes)
+
+        # Reject note IDs duplicated on this ticket or any earlier ticket.
+        for note in notes:
+            note_id = note["note_id"]
+
+            if note_id in seen_note_ids:
+                raise ValueError(
+                    f"Duplicate note ID across tickets: {note_id}"
+                )
+
+            seen_note_ids.add(note_id)
+
+        ticket.setdefault("notes", notes)
 
         if assigned_to is not None and (
             not isinstance(assigned_to, str) or not assigned_to.strip()

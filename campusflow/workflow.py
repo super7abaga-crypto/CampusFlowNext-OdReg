@@ -1,7 +1,11 @@
+
 """Operations for finding, assigning, and updating tickets."""
 
 from datetime import datetime
+
 from campusflow.staff import STAFF_MEMBERS
+
+
 ALLOWED_STATUSES = {"open", "in_progress", "resolved", "closed"}
 
 
@@ -9,29 +13,28 @@ def find_ticket(tickets, ticket_id):
     """Return a ticket by ID, ignoring ID letter case."""
     if not isinstance(ticket_id, str) or not ticket_id.strip():
         raise ValueError("Please provide a ticket ID.")
+
     wanted = ticket_id.strip().upper()
+
     for ticket in tickets:
-        if isinstance(ticket, dict) and str(ticket.get("id", "")).upper() == wanted:
+        if (
+            isinstance(ticket, dict)
+            and str(ticket.get("id", "")).upper() == wanted
+        ):
             return ticket
+
     raise ValueError(f"Ticket {wanted} was not found.")
 
 
 def normalize_name(name):
     """Normalize a staff name for comparison."""
-    return (
-        name.strip()
-        .casefold()
-        .replace("(hoc)", "")
-        .strip()
-    )
+    return name.strip().casefold().replace("(hoc)", "").strip()
 
 
 def assign_ticket(tickets, ticket_id, assignee):
     """Assign or reassign a ticket unless it is resolved or closed."""
-
     ticket = find_ticket(tickets, ticket_id)
 
-    # Prevent reassignment of resolved or closed tickets.
     if ticket.get("status") in {"resolved", "closed"}:
         raise ValueError(
             f"Ticket {ticket_id} cannot be reassigned "
@@ -39,13 +42,11 @@ def assign_ticket(tickets, ticket_id, assignee):
             "Reopen the ticket before changing its assignment."
         )
 
-    # Validate the staff name.
     if not isinstance(assignee, str) or not assignee.strip():
         raise ValueError("Staff name cannot be empty.")
 
     entered_name = normalize_name(assignee)
 
-    # Find the staff member using flexible name matching.
     staff_member = next(
         (
             staff
@@ -55,18 +56,15 @@ def assign_ticket(tickets, ticket_id, assignee):
         None,
     )
 
-    # Reject names that do not match an available staff record.
     if staff_member is None:
         valid_names = ", ".join(
             staff["name"] for staff in STAFF_MEMBERS
         )
-
         raise ValueError(
             f"Staff member '{assignee.strip()}' was not found. "
             f"Choose from: {valid_names}"
         )
 
-    # Reject unavailable staff members.
     if not staff_member.get("available", False):
         raise ValueError(
             f"{staff_member['name']} is currently unavailable "
@@ -76,10 +74,8 @@ def assign_ticket(tickets, ticket_id, assignee):
     previous_assignee = ticket.get("assigned_to")
     official_name = staff_member["name"]
 
-    # Store the official name from STAFF_MEMBERS.
     ticket["assigned_to"] = official_name
 
-    # Record the assignment or reassignment in ticket history.
     if previous_assignee != official_name:
         if previous_assignee:
             record_ticket_history(
@@ -97,9 +93,9 @@ def assign_ticket(tickets, ticket_id, assignee):
 
     return ticket
 
-def update_ticket_status(tickets, ticket_id, status):
-    """Update a ticket's status and record the change."""
 
+def update_ticket_status(tickets, ticket_id, status):
+    """Update a ticket's status only when the transition is valid."""
     if not isinstance(status, str):
         raise ValueError(
             "Invalid status. Choose open, in_progress, resolved, or closed."
@@ -115,7 +111,39 @@ def update_ticket_status(tickets, ticket_id, status):
     ticket = find_ticket(tickets, ticket_id)
     previous_status = ticket.get("status")
 
-        # Prevent unassigned tickets from moving to another workflow stage.
+    # Do nothing if the requested status is already the current status.
+    if previous_status == status:
+        return ticket
+
+    # A closed ticket must be explicitly reopened before
+    # it can return to in_progress or resolved.
+    if previous_status == "closed" and status != "open":
+        raise ValueError(
+            "A closed ticket must be reopened to open "
+            "before it can move to another status."
+        )
+
+    # A resolved ticket may only move to closed or be reopened to open.
+    if previous_status == "resolved" and status not in {"closed", "open"}:
+        raise ValueError(
+            "A resolved ticket can only be closed or reopened to open."
+        )
+
+    # An open ticket must move to in_progress first.
+    if previous_status == "open" and status not in {"in_progress"}:
+        raise ValueError(
+            "An open ticket must move to in_progress "
+            "before it can be resolved or closed."
+        )
+
+    # An in-progress ticket must be resolved before it can be closed.
+    if previous_status == "in_progress" and status == "closed":
+        raise ValueError(
+            "An in-progress ticket must be resolved "
+            "before it can be closed."
+        )
+
+    # Prevent unassigned tickets from progressing through the workflow.
     if (
         status in {"in_progress", "resolved", "closed"}
         and not ticket.get("assigned_to")
@@ -129,19 +157,17 @@ def update_ticket_status(tickets, ticket_id, status):
     # Update the status only after validation succeeds.
     ticket["status"] = status
 
-    # Record the change in ticket history.
-    if previous_status != status:
-        record_ticket_history(
-            ticket,
-            "status_changed",
-            f"Status changed from {previous_status} to {status}",
-        )
+    record_ticket_history(
+        ticket,
+        "status_changed",
+        f"Status changed from {previous_status} to {status}",
+    )
 
     return ticket
 
-def get_priority_queue(tickets):
-    """Return unresolved tickets sorted by priority and numeric ID."""
 
+def get_priority_queue(tickets):
+    """Return only open tickets sorted by priority and numeric ID."""
     priority_order = {
         "critical": 0,
         "high": 1,
@@ -149,19 +175,20 @@ def get_priority_queue(tickets):
         "low": 3,
     }
 
-    unresolved_tickets = [
+    open_tickets = [
         ticket
         for ticket in tickets
-        if ticket.get("status") not in {"resolved", "closed"}
+        if ticket.get("status") == "open"
     ]
 
     return sorted(
-        unresolved_tickets,
+        open_tickets,
         key=lambda ticket: (
             priority_order.get(ticket.get("priority"), 4),
             int(ticket["id"][1:]),
         ),
     )
+
 
 def filter_tickets(
     tickets,
@@ -171,7 +198,6 @@ def filter_tickets(
     assigned_to=None,
 ):
     """Return tickets matching the supplied filters."""
-
     filtered = []
 
     for ticket in tickets:
@@ -200,6 +226,7 @@ def filter_tickets(
 
     return filtered
 
+
 def filter_and_sort_tickets(
     tickets,
     status=None,
@@ -208,7 +235,6 @@ def filter_and_sort_tickets(
     assigned_to=None,
 ):
     """Filter tickets and return them sorted by priority."""
-
     filtered = filter_tickets(
         tickets,
         status=status,
@@ -233,30 +259,37 @@ def filter_and_sort_tickets(
     )
 
 
-def search_tickets(tickets, keyword, status, priority, category, assigned_to):
-    filtered_ticket = filter_and_sort_tickets(tickets, status, priority, category, assigned_to)
-    if keyword is None:
-        return filtered_ticket
 
-    word = keyword.strip()
-    normalised_keyword = word.casefold()
-    search_result = []
-    if normalised_keyword == "":
-            return filtered_ticket
+def search_tickets(tickets, keyword=None, status=None, priority=None, category=None, assigned_to=None):
+    """Search tickets by title and apply optional filters."""
+    filtered_tickets = filter_and_sort_tickets(
+        tickets,
+        status,
+        priority,
+        category,
+        assigned_to,
+    )
 
-    for ticket in filtered_ticket:
-        ticket_title = ticket["title"].casefold()
+    if keyword is None or not keyword.strip():
+        return filtered_tickets
+
+    normalised_keyword = keyword.strip().casefold()
+    search_results = []
+
+    for ticket in filtered_tickets:
+        ticket_title = ticket.get("title", "").casefold()
 
         if normalised_keyword in ticket_title:
-            search_result.append(ticket)
-    return search_result
+            search_results.append(ticket)
 
-    
+    return search_results
+
 def record_ticket_history(ticket, action, details):
     """Record an event in a ticket's history."""
-
     event = {
-        "timestamp": datetime.now().astimezone().isoformat(timespec="seconds"),
+        "timestamp": datetime.now()
+        .astimezone()
+        .isoformat(timespec="seconds"),
         "action": action,
         "details": details,
     }
