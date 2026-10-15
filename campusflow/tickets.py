@@ -68,6 +68,7 @@ def create_ticket(tickets, title, category, urgency, affected_users):
         "priority": calculate_priority(urgency, affected_users),
         "status": "open",
         "assigned_to": None,
+        "notes": [],
         "created_at": datetime.now().astimezone().isoformat(timespec="seconds"),
     }
     tickets.append(ticket)
