@@ -1,4 +1,3 @@
-
 """Tests for ticket assignment, status changes, and workflow protections."""
 
 import unittest
@@ -25,6 +24,35 @@ class WorkflowTests(unittest.TestCase):
             "medium",
             4,
         )
+
+    def assign_test_ticket(self):
+        """Assign the test ticket to an available staff member."""
+        with patch(
+            "campusflow.workflow.STAFF_MEMBERS",
+            [
+                {
+                    "name": "Mr. Odeh",
+                    "speciality": "Network",
+                    "available": True,
+                }
+            ],
+        ):
+            return assign_ticket(
+                self.tickets,
+                "T001",
+                "Mr. Odeh",
+            )
+
+    def close_test_ticket(self):
+        """Close a ticket by following the valid status sequence."""
+        ticket = find_ticket(self.tickets, "T001")
+        ticket["assigned_to"] = "Mr. Odeh"
+
+        update_ticket_status(self.tickets, "T001", "in_progress")
+        update_ticket_status(self.tickets, "T001", "resolved")
+        update_ticket_status(self.tickets, "T001", "closed")
+
+        return ticket
 
     def test_find_ticket_is_case_insensitive(self):
         """Ticket lookup should ignore ID letter case."""
@@ -104,21 +132,7 @@ class WorkflowTests(unittest.TestCase):
 
     def test_status_change_is_recorded_in_history(self):
         """Changing status should record the change."""
-        with patch(
-            "campusflow.workflow.STAFF_MEMBERS",
-            [
-                {
-                    "name": "Mr. Odeh",
-                    "speciality": "Network",
-                    "available": True,
-                }
-            ],
-        ):
-            assign_ticket(
-                self.tickets,
-                "T001",
-                "Mr. Odeh",
-            )
+        self.assign_test_ticket()
 
         ticket = update_ticket_status(
             self.tickets,
@@ -143,10 +157,7 @@ class WorkflowTests(unittest.TestCase):
 
     def test_cannot_assign_closed_ticket(self):
         """A closed ticket should not be assignable."""
-        ticket = find_ticket(self.tickets, "T001")
-        ticket["assigned_to"] = "Mr. Odeh"
-
-        update_ticket_status(self.tickets, "T001", "closed")
+        ticket = self.close_test_ticket()
         original_assignee = ticket["assigned_to"]
 
         with self.assertRaises(ValueError):
@@ -224,14 +235,13 @@ class WorkflowTests(unittest.TestCase):
 
     def test_closed_ticket_cannot_be_reassigned(self):
         """A closed ticket cannot be reassigned."""
-        ticket = find_ticket(self.tickets, "T001")
-        ticket["status"] = "closed"
-        ticket["assigned_to"] = "Mr. Odeh"
+        ticket = self.close_test_ticket()
+        original_assignee = ticket["assigned_to"]
 
         with self.assertRaises(ValueError):
             assign_ticket(self.tickets, "T001", "Ada")
 
-        self.assertEqual(ticket["assigned_to"], "Mr. Odeh")
+        self.assertEqual(ticket["assigned_to"], original_assignee)
 
     def test_resolved_ticket_cannot_move_directly_to_in_progress(self):
         """A resolved ticket must be reopened before work resumes."""
@@ -281,6 +291,74 @@ class WorkflowTests(unittest.TestCase):
         """An unsupported status should be rejected."""
         with self.assertRaises(ValueError):
             update_ticket_status(self.tickets, "T001", "pending")
+
+    # Regression tests for valid status transitions.
+
+    def test_open_ticket_cannot_jump_to_closed(self):
+        """An open ticket must enter in_progress before closing."""
+        ticket = self.tickets[0]
+        ticket["assigned_to"] = "Mr. Odeh"
+
+        with self.assertRaisesRegex(ValueError, "in_progress"):
+            update_ticket_status(self.tickets, "T001", "closed")
+
+        self.assertEqual(ticket["status"], "open")
+
+    def test_in_progress_ticket_cannot_jump_to_closed(self):
+        """An in-progress ticket must be resolved before closing."""
+        ticket = self.tickets[0]
+        ticket["assigned_to"] = "Mr. Odeh"
+        update_ticket_status(self.tickets, "T001", "in_progress")
+
+        with self.assertRaisesRegex(ValueError, "resolved"):
+            update_ticket_status(self.tickets, "T001", "closed")
+
+        self.assertEqual(ticket["status"], "in_progress")
+
+    def test_closed_ticket_cannot_move_to_in_progress(self):
+        """A closed ticket must be reopened before work resumes."""
+        ticket = self.close_test_ticket()
+
+        with self.assertRaisesRegex(ValueError, "reopened to open"):
+            update_ticket_status(self.tickets, "T001", "in_progress")
+
+        self.assertEqual(ticket["status"], "closed")
+
+    def test_closed_ticket_cannot_move_to_resolved(self):
+        """A closed ticket cannot jump directly to resolved."""
+        ticket = self.close_test_ticket()
+
+        with self.assertRaisesRegex(ValueError, "reopened to open"):
+            update_ticket_status(self.tickets, "T001", "resolved")
+
+        self.assertEqual(ticket["status"], "closed")
+
+    def test_closed_ticket_can_be_reopened(self):
+        """A closed ticket can return to open."""
+        ticket = self.close_test_ticket()
+
+        updated_ticket = update_ticket_status(
+            self.tickets,
+            "T001",
+            "open",
+        )
+
+        self.assertEqual(updated_ticket["status"], "open")
+        self.assertEqual(ticket["status"], "open")
+
+    def test_reopened_closed_ticket_can_resume_work(self):
+        """A closed ticket can resume work after being reopened."""
+        ticket = self.close_test_ticket()
+
+        update_ticket_status(self.tickets, "T001", "open")
+        updated_ticket = update_ticket_status(
+            self.tickets,
+            "T001",
+            "in_progress",
+        )
+
+        self.assertEqual(updated_ticket["status"], "in_progress")
+        self.assertEqual(ticket["status"], "in_progress")
 
 
 if __name__ == "__main__":

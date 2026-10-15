@@ -95,7 +95,7 @@ def assign_ticket(tickets, ticket_id, assignee):
 
 
 def update_ticket_status(tickets, ticket_id, status):
-    """Update a ticket's status and record the change."""
+    """Update a ticket's status only when the transition is valid."""
     if not isinstance(status, str):
         raise ValueError(
             "Invalid status. Choose open, in_progress, resolved, or closed."
@@ -111,11 +111,36 @@ def update_ticket_status(tickets, ticket_id, status):
     ticket = find_ticket(tickets, ticket_id)
     previous_status = ticket.get("status")
 
-    # A resolved ticket must be reopened before any further status change.
-    if previous_status == "resolved" and status != "open":
+    # Do nothing if the requested status is already the current status.
+    if previous_status == status:
+        return ticket
+
+    # A closed ticket must be explicitly reopened before
+    # it can return to in_progress or resolved.
+    if previous_status == "closed" and status != "open":
         raise ValueError(
-            "A resolved ticket must be reopened to open "
-            "before its status can be changed again."
+            "A closed ticket must be reopened to open "
+            "before it can move to another status."
+        )
+
+    # A resolved ticket may only move to closed or be reopened to open.
+    if previous_status == "resolved" and status not in {"closed", "open"}:
+        raise ValueError(
+            "A resolved ticket can only be closed or reopened to open."
+        )
+
+    # An open ticket must move to in_progress first.
+    if previous_status == "open" and status not in {"in_progress"}:
+        raise ValueError(
+            "An open ticket must move to in_progress "
+            "before it can be resolved or closed."
+        )
+
+    # An in-progress ticket must be resolved before it can be closed.
+    if previous_status == "in_progress" and status == "closed":
+        raise ValueError(
+            "An in-progress ticket must be resolved "
+            "before it can be closed."
         )
 
     # Prevent unassigned tickets from progressing through the workflow.
@@ -132,12 +157,11 @@ def update_ticket_status(tickets, ticket_id, status):
     # Update the status only after validation succeeds.
     ticket["status"] = status
 
-    if previous_status != status:
-        record_ticket_history(
-            ticket,
-            "status_changed",
-            f"Status changed from {previous_status} to {status}",
-        )
+    record_ticket_history(
+        ticket,
+        "status_changed",
+        f"Status changed from {previous_status} to {status}",
+    )
 
     return ticket
 
