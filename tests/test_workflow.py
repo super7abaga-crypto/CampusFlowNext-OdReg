@@ -1,3 +1,6 @@
+
+"""Tests for ticket assignment, status changes, and workflow protections."""
+
 import unittest
 from unittest.mock import patch
 
@@ -5,6 +8,7 @@ from campusflow.tickets import create_ticket
 from campusflow.workflow import (
     assign_ticket,
     find_ticket,
+    get_priority_queue,
     update_ticket_status,
 )
 
@@ -54,6 +58,28 @@ class WorkflowTests(unittest.TestCase):
 
         self.assertEqual(ticket["assigned_to"], "Ada")
 
+    def test_priority_queue_contains_only_open_tickets(self):
+        """The priority queue should contain open tickets only."""
+        tickets = [
+            {"id": "T001", "priority": "high", "status": "open"},
+            {"id": "T002", "priority": "critical", "status": "open"},
+            {
+                "id": "T003",
+                "priority": "critical",
+                "status": "in_progress",
+            },
+            {"id": "T004", "priority": "high", "status": "resolved"},
+            {"id": "T005", "priority": "low", "status": "open"},
+            {"id": "T006", "priority": "medium", "status": "closed"},
+        ]
+
+        queue = get_priority_queue(tickets)
+
+        self.assertEqual(
+            [ticket["id"] for ticket in queue],
+            ["T002", "T001", "T005"],
+        )
+
     def test_assignment_is_recorded_in_history(self):
         """Assigning a ticket should record the assignment."""
         with patch(
@@ -74,10 +100,7 @@ class WorkflowTests(unittest.TestCase):
 
         self.assertEqual(ticket["assigned_to"], "John")
         self.assertTrue(ticket["history"])
-        self.assertEqual(
-            ticket["history"][-1]["action"],
-            "assigned",
-        )
+        self.assertEqual(ticket["history"][-1]["action"], "assigned")
 
     def test_status_change_is_recorded_in_history(self):
         """Changing status should record the change."""
@@ -105,64 +128,31 @@ class WorkflowTests(unittest.TestCase):
 
         self.assertEqual(ticket["status"], "in_progress")
         self.assertEqual(len(ticket["history"]), 2)
-
-        self.assertEqual(
-            ticket["history"][0]["action"],
-            "assigned",
-        )
-
-        self.assertEqual(
-            ticket["history"][1]["action"],
-            "status_changed",
-        )
-
+        self.assertEqual(ticket["history"][0]["action"], "assigned")
+        self.assertEqual(ticket["history"][1]["action"], "status_changed")
         self.assertEqual(
             ticket["history"][1]["details"],
             "Status changed from open to in_progress",
         )
-
-        self.assertIn(
-            "timestamp",
-            ticket["history"][1],
-        )
+        self.assertIn("timestamp", ticket["history"][1])
 
     def test_blank_assignee_is_rejected(self):
         """An empty staff name should be rejected."""
         with self.assertRaises(ValueError):
-            assign_ticket(
-                self.tickets,
-                "T001",
-                " ",
-            )
+            assign_ticket(self.tickets, "T001", " ")
 
     def test_cannot_assign_closed_ticket(self):
         """A closed ticket should not be assignable."""
-
         ticket = find_ticket(self.tickets, "T001")
-
-        # Assign the ticket before closing it.
         ticket["assigned_to"] = "Mr. Odeh"
 
-        update_ticket_status(
-            self.tickets,
-            "T001",
-            "closed",
-        )
-
+        update_ticket_status(self.tickets, "T001", "closed")
         original_assignee = ticket["assigned_to"]
 
         with self.assertRaises(ValueError):
-            assign_ticket(
-                self.tickets,
-                "T001",
-                "Ada",
-            )
+            assign_ticket(self.tickets, "T001", "Ada")
 
-        # Confirm that the failed operation did not change the assignment.
-        self.assertEqual(
-            ticket["assigned_to"],
-            original_assignee,
-        )
+        self.assertEqual(ticket["assigned_to"], original_assignee)
 
     def test_update_status_normalizes_case(self):
         """Status updates should ignore case and surrounding spaces."""
@@ -176,11 +166,7 @@ class WorkflowTests(unittest.TestCase):
                 }
             ],
         ):
-            assign_ticket(
-                self.tickets,
-                "T001",
-                "Ada",
-            )
+            assign_ticket(self.tickets, "T001", "Ada")
 
         ticket = update_ticket_status(
             self.tickets,
@@ -201,79 +187,100 @@ class WorkflowTests(unittest.TestCase):
             ValueError,
             "assigned to a staff member",
         ):
+            update_ticket_status(self.tickets, "T001", "in_progress")
+
+        self.assertEqual(ticket["status"], "open")
+
+    def test_unassigned_ticket_cannot_be_resolved(self):
+        """An unassigned ticket cannot be resolved."""
+        with self.assertRaises(ValueError):
+            update_ticket_status(self.tickets, "T001", "resolved")
+
+        self.assertEqual(
+            find_ticket(self.tickets, "T001")["status"],
+            "open",
+        )
+
+    def test_unassigned_ticket_cannot_be_closed(self):
+        """An unassigned ticket cannot be closed."""
+        with self.assertRaises(ValueError):
+            update_ticket_status(self.tickets, "T001", "closed")
+
+        self.assertEqual(
+            find_ticket(self.tickets, "T001")["status"],
+            "open",
+        )
+
+    def test_resolved_ticket_cannot_be_reassigned(self):
+        """A resolved ticket cannot be reassigned."""
+        ticket = find_ticket(self.tickets, "T001")
+        ticket["status"] = "resolved"
+        ticket["assigned_to"] = "Mr. Odeh"
+
+        with self.assertRaises(ValueError):
+            assign_ticket(self.tickets, "T001", "Ada")
+
+        self.assertEqual(ticket["assigned_to"], "Mr. Odeh")
+
+    def test_closed_ticket_cannot_be_reassigned(self):
+        """A closed ticket cannot be reassigned."""
+        ticket = find_ticket(self.tickets, "T001")
+        ticket["status"] = "closed"
+        ticket["assigned_to"] = "Mr. Odeh"
+
+        with self.assertRaises(ValueError):
+            assign_ticket(self.tickets, "T001", "Ada")
+
+        self.assertEqual(ticket["assigned_to"], "Mr. Odeh")
+
+    def test_resolved_ticket_cannot_move_directly_to_in_progress(self):
+        """A resolved ticket must be reopened before work resumes."""
+        ticket = self.tickets[0]
+        ticket["assigned_to"] = "Mr. Odeh"
+        ticket["status"] = "resolved"
+
+        with self.assertRaisesRegex(ValueError, "reopened to open"):
             update_ticket_status(
                 self.tickets,
                 "T001",
                 "in_progress",
             )
 
-        self.assertEqual(ticket["status"], "open")
+        self.assertEqual(ticket["status"], "resolved")
 
-    def test_unassigned_ticket_cannot_be_resolved(self):
-        with self.assertRaises(ValueError):
-            update_ticket_status(
-                self.tickets,
-                "T001",
-                "resolved",
-            )
-
-        self.assertEqual(
-            find_ticket(self.tickets, "T001")["status"],
-            "open",
-        )
-
-
-    def test_unassigned_ticket_cannot_be_closed(self):
-        with self.assertRaises(ValueError):
-            update_ticket_status(
-                self.tickets,
-                "T001",
-                "closed",
-            )
-
-        self.assertEqual(
-            find_ticket(self.tickets, "T001")["status"],
-            "open",
-        )
-
-
-    def test_resolved_ticket_cannot_be_reassigned(self):
-        ticket = find_ticket(self.tickets, "T001")
+    def test_resolved_ticket_can_be_reopened(self):
+        """A resolved ticket can return to open."""
+        ticket = self.tickets[0]
+        ticket["assigned_to"] = "Mr. Odeh"
         ticket["status"] = "resolved"
+
+        updated_ticket = update_ticket_status(
+            self.tickets,
+            "T001",
+            "open",
+        )
+
+        self.assertEqual(updated_ticket["status"], "open")
+
+    def test_reopened_ticket_can_move_to_in_progress(self):
+        """A reopened, assigned ticket can resume work."""
+        ticket = self.tickets[0]
         ticket["assigned_to"] = "Mr. Odeh"
+        ticket["status"] = "resolved"
 
-        with self.assertRaises(ValueError):
-            assign_ticket(
-                self.tickets,
-                "T001",
-                "Ada",
-            )
+        update_ticket_status(self.tickets, "T001", "open")
+        updated_ticket = update_ticket_status(
+            self.tickets,
+            "T001",
+            "in_progress",
+        )
 
-        self.assertEqual(ticket["assigned_to"], "Mr. Odeh")
-
-
-    def test_closed_ticket_cannot_be_reassigned(self):
-        ticket = find_ticket(self.tickets, "T001")
-        ticket["status"] = "closed"
-        ticket["assigned_to"] = "Mr. Odeh"
-
-        with self.assertRaises(ValueError):
-            assign_ticket(
-                self.tickets,
-                "T001",
-                "Ada",
-            )
-
-        self.assertEqual(ticket["assigned_to"], "Mr. Odeh")
+        self.assertEqual(updated_ticket["status"], "in_progress")
 
     def test_invalid_status_is_rejected(self):
         """An unsupported status should be rejected."""
         with self.assertRaises(ValueError):
-            update_ticket_status(
-                self.tickets,
-                "T001",
-                "pending",
-            )
+            update_ticket_status(self.tickets, "T001", "pending")
 
 
 if __name__ == "__main__":
