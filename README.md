@@ -1,4 +1,4 @@
-# OdIna-Campusflow — Ticket Management CLI
+# Od_Reg-Campusflow — Ticket Management CLI
 
 A beginner-friendly Python command-line project for creating and managing IT support tickets.
 
