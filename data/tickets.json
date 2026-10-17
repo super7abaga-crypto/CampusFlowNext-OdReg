@@ -7,7 +7,15 @@
     "affected_users": 45,
     "priority": "critical",
     "status": "open",
-    "assigned_to": null
+    "assigned_to": "Mr. Wealth",
+    "notes": [],
+    "history": [
+      {
+        "timestamp": "2026-10-16T16:20:33+01:00",
+        "action": "assigned",
+        "details": "Assigned to Mr. Wealth"
+      }
+    ]
   },
   {
     "id": "T002",
@@ -17,8 +25,16 @@
     "affected_users": 3,
     "priority": "high",
     "status": "open",
-    "assigned_to": null,
-    "created_at": "2026-10-13T16:50:23+01:00"
+    "assigned_to": "Mr. Edward",
+    "created_at": "2026-10-13T16:50:23+01:00",
+    "notes": [],
+    "history": [
+      {
+        "timestamp": "2026-10-16T16:23:30+01:00",
+        "action": "assigned",
+        "details": "Assigned to Mr. Edward"
+      }
+    ]
   },
   {
     "id": "T003",
@@ -50,6 +66,150 @@
         "timestamp": "2026-10-15T10:23:23+01:00",
         "action": "status_changed",
         "details": "Status changed from resolved to open"
+      }
+    ],
+    "notes": []
+  },
+  {
+    "id": "T004",
+    "title": "Wifi Outage",
+    "category": "Network",
+    "urgency": "high",
+    "affected_users": 120,
+    "priority": "critical",
+    "status": "open",
+    "assigned_to": "Mr. Kingsley (HOC)",
+    "notes": [],
+    "created_at": "2026-10-16T16:24:02+01:00",
+    "history": [
+      {
+        "timestamp": "2026-10-16T16:24:27+01:00",
+        "action": "assigned",
+        "details": "Assigned to Mr. Kingsley (HOC)"
+      }
+    ]
+  },
+  {
+    "id": "T005",
+    "title": "Ubuntu",
+    "category": "Software",
+    "urgency": "high",
+    "affected_users": 9,
+    "priority": "high",
+    "status": "open",
+    "assigned_to": "Mr. Kingsley (Software)",
+    "notes": [],
+    "created_at": "2026-10-16T16:25:02+01:00",
+    "history": [
+      {
+        "timestamp": "2026-10-16T16:25:57+01:00",
+        "action": "assigned",
+        "details": "Assigned to Mr. Kingsley (Software)"
+      }
+    ]
+  },
+  {
+    "id": "T006",
+    "title": "Keyboard",
+    "category": "Hardware",
+    "urgency": "high",
+    "affected_users": 7,
+    "priority": "high",
+    "status": "open",
+    "assigned_to": "Big 7",
+    "notes": [],
+    "created_at": "2026-10-16T16:28:54+01:00",
+    "history": [
+      {
+        "timestamp": "2026-10-16T16:31:14+01:00",
+        "action": "assigned",
+        "details": "Assigned to Big 7"
+      }
+    ]
+  },
+  {
+    "id": "T007",
+    "title": "Disabled Wi-Fi",
+    "category": "Network",
+    "urgency": "high",
+    "affected_users": 15,
+    "priority": "critical",
+    "status": "open",
+    "assigned_to": "Mr. Odeh",
+    "notes": [],
+    "created_at": "2026-10-16T16:32:27+01:00",
+    "history": [
+      {
+        "timestamp": "2026-10-16T16:32:55+01:00",
+        "action": "assigned",
+        "details": "Assigned to Mr. Odeh"
+      }
+    ]
+  },
+  {
+    "id": "T008",
+    "title": "Connected but No Internet Access",
+    "category": "Network",
+    "urgency": "high",
+    "affected_users": 33,
+    "priority": "critical",
+    "status": "open",
+    "assigned_to": "Mr. Odeh",
+    "notes": [],
+    "created_at": "2026-10-16T16:33:38+01:00",
+    "history": [
+      {
+        "timestamp": "2026-10-16T16:33:47+01:00",
+        "action": "assigned",
+        "details": "Assigned to Mr. Odeh"
+      }
+    ]
+  },
+  {
+    "id": "T009",
+    "title": "Connection not available",
+    "category": "Network",
+    "urgency": "medium",
+    "affected_users": 9,
+    "priority": "medium",
+    "status": "open",
+    "assigned_to": "Mr. Kingsley (HOC)",
+    "notes": [],
+    "created_at": "2026-10-16T16:34:47+01:00",
+    "history": [
+      {
+        "timestamp": "2026-10-16T16:35:23+01:00",
+        "action": "assigned",
+        "details": "Assigned to Mr. Kingsley (HOC)"
+      }
+    ]
+  },
+  {
+    "id": "T010",
+    "title": "Wardrobe Issue",
+    "category": "Other",
+    "urgency": "high",
+    "affected_users": 7,
+    "priority": "high",
+    "status": "resolved",
+    "assigned_to": "Mr. Edward",
+    "notes": [],
+    "created_at": "2026-10-16T16:36:22+01:00",
+    "history": [
+      {
+        "timestamp": "2026-10-16T16:36:33+01:00",
+        "action": "assigned",
+        "details": "Assigned to Mr. Edward"
+      },
+      {
+        "timestamp": "2026-10-16T16:36:52+01:00",
+        "action": "status_changed",
+        "details": "Status changed from open to in_progress"
+      },
+      {
+        "timestamp": "2026-10-16T16:40:03+01:00",
+        "action": "status_changed",
+        "details": "Status changed from in_progress to resolved"
       }
     ]
   }

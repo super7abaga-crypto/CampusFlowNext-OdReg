@@ -1,6 +1,6 @@
 import unittest
 
-from campusflow.staff import recommend_staff
+from campusflow.staff import recommend_staff, summarize_staff_workload
 from campusflow.tickets import create_ticket
 
 
@@ -99,6 +99,72 @@ class StaffRecommendationTests(unittest.TestCase):
         )
 
         self.assertIsNone(recommendation)
+
+
+    def test_workload_summary_counts_active_tickets(self):
+        self.tickets.extend([
+            {
+                "id": "T002",
+                "assigned_to": "John",
+                "status": "open",
+            },
+            {
+                "id": "T003",
+                "assigned_to": "John",
+                "status": "in_progress",
+            },
+            {
+                "id": "T004",
+                "assigned_to": "John",
+                "status": "resolved",
+            },
+            {
+                "id": "T005",
+                "assigned_to": None,
+                "status": "open",
+            },
+        ])
+
+        summary = summarize_staff_workload(
+            self.tickets,
+            self.staff_members,
+        )
+
+        john = next(
+            staff for staff in summary["staff"]
+            if staff["name"] == "John"
+        )
+
+        self.assertEqual(john["active"], 2)
+        self.assertEqual(john["open"], 1)
+        self.assertEqual(john["in_progress"], 1)
+        self.assertEqual(summary["unassigned"], 2)
+
+    def test_workload_summary_excludes_closed_tickets(self):
+        self.tickets.extend([
+            {
+                "id": "T002",
+                "assigned_to": "Mary",
+                "status": "closed",
+            },
+            {
+                "id": "T003",
+                "assigned_to": "Mary",
+                "status": "resolved",
+            },
+        ])
+
+        summary = summarize_staff_workload(
+            self.tickets,
+            self.staff_members,
+        )
+
+        mary = next(
+            staff for staff in summary["staff"]
+            if staff["name"] == "Mary"
+        )
+
+        self.assertEqual(mary["active"], 0)
 
 
 if __name__ == "__main__":
