@@ -3,10 +3,12 @@
 from campusflow.reports import format_report, format_ticket
 from campusflow.storage import DEFAULT_STORAGE_PATH, load_tickets, save_tickets
 from campusflow.tickets import create_ticket
-from campusflow.staff import recommend_staff
+from campusflow.staff import recommend_staff, summarize_staff_workload
 
+from campusflow.quiz import quiz
 from campusflow.notes import make_note_adder
 from campusflow.workflow import assign_ticket, update_ticket_status, search_tickets
+
 
 def ask_positive_integer(prompt):
     """Prompt until the user enters a positive whole number."""
@@ -130,6 +132,9 @@ def print_menu():
     print("7. Reload tickets from disk")
     print("8. Recommend staff for a ticket")
     print("9. Search tickets")
+    print("10. Show staff workload dashboard")
+    print("11. Take the campusFlow quiz")
+    print("12. Add a note to a ticket")
     print("0. Save and exit")
 
 
@@ -196,6 +201,7 @@ def main():
                 print(f"Could not reload tickets: {exc}")
             else:
                 tickets = reloaded
+                add_note = make_note_adder(tickets)
                 print(
                     f"Reloaded {len(tickets)} ticket(s). "
                     "Unsaved changes, if any, were discarded."
@@ -305,8 +311,78 @@ def main():
             else:
                 print(f"No tickets found matching '{title_keyword}'.")
 
+        elif choice == "10":
+            summary = summarize_staff_workload(tickets)
 
-            
+            print(
+                "\n===== STAFF WORKLOAD & PERFORMANCE DASHBOARD ====="
+            )
+
+            print(
+                f"{'Staff Member':<25} "
+                f"{'Speciality':<12} "
+                f"{'Status':<15} "
+                f"{'Active Tickets (Count: IDs)':<32} "
+                f"{'Resolved/Closed Tickets (Count: IDs)'}"
+            )
+
+            print("-" * 130)
+
+            for staff in summary["staff"]:
+                availability = staff["status"]
+
+                active_ids = ", ".join(
+                    staff["active_ticket_ids"]
+                )
+
+                resolved_closed_ids = ", ".join(
+                    staff["resolved_closed_ticket_ids"]
+                )
+
+                active_display = (
+                    f"{staff['active']} ({active_ids})"
+                    if active_ids
+                    else "0"
+                )
+
+                resolved_closed_display = (
+                    f"{staff['resolved_closed']} "
+                    f"({resolved_closed_ids})"
+                    if resolved_closed_ids
+                    else "0"
+                )
+
+                print(
+                    f"{staff['name']:<25} "
+                    f"{staff['speciality']:<12} "
+                    f"{availability:<15} "
+                    f"{active_display:<32} "
+                    f"{resolved_closed_display}"
+                )
+
+            print("-" * 130)
+
+            print(
+                f"Unassigned active tickets: "
+                f"{summary['unassigned']}"
+            )
+
+        elif choice == "11":
+            quiz()
+
+        elif choice == "12":
+            ticket_id = input("Enter ticket ID: ")
+            author = input("Enter your name: ")
+            message = input("Enter note message: ")
+
+            try:
+                new_note = add_note(ticket_id, author, message)
+                print(
+                    f"Note added successfully! "
+                    f"Note ID: {new_note['note_id']}"
+                )
+            except ValueError as error:
+                print(f"Error: {error}")
 
         elif choice == "0":
             try:
