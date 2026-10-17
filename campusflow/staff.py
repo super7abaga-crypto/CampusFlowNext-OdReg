@@ -47,6 +47,11 @@ STAFF_MEMBERS = [
         "available": True,
     },
     {
+        "name": "Ms. Juliet",
+        "speciality": "Software",
+        "available": True,
+    },
+    {
         "name": "Ms. Queen",
         "speciality": "Software",
         "available": True,
@@ -232,9 +237,9 @@ def summarize_staff_workload(tickets, staff_members=None):
         "unassigned": unassigned,
     }
 
+
 def recommend_staff_options(ticket, tickets, staff_members=None):
     """Return all eligible available specialists, ranked by workload."""
-
     if staff_members is None:
         staff_members = STAFF_MEMBERS
 

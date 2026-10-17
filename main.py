@@ -9,6 +9,7 @@ from campusflow.staff import (
     summarize_staff_workload,
 )
 
+from campusflow.quiz import quiz
 from campusflow.notes import make_note_adder
 from campusflow.workflow import assign_ticket, update_ticket_status, search_tickets
 
@@ -204,6 +205,8 @@ def print_menu():
     print("8. Recommend staff")
     print("9. Search tickets")
     print("10. Show staff workload dashboard")
+    print("11. Take the campusFlow quiz")
+    print("12. Add a note to a ticket")
     print("0. Save and exit")
 
 
@@ -314,10 +317,10 @@ def main():
                 print(exc)
 
         elif choice == "4":
-            ticket_id = input("Ticket ID: ")
+            ticket_id = input("Ticket ID: ").strip()
             status = input(
                 "New status (open/in_progress/resolved/closed): "
-            )
+            ).strip()
 
             try:
                 ticket = update_ticket_status(
@@ -349,6 +352,7 @@ def main():
                 print(f"Could not reload tickets: {exc}")
             else:
                 tickets = reloaded
+                add_note = make_note_adder(tickets)
                 print(
                     f"Reloaded {len(tickets)} ticket(s). "
                     "Unsaved changes, if any, were discarded."
@@ -581,6 +585,23 @@ def main():
                 f"{summary['unassigned']}"
             )
 
+        elif choice == "11":
+            quiz()
+
+        elif choice == "12":
+            ticket_id = input("Enter ticket ID: ").strip()
+            author = input("Enter your name: ").strip()
+            message = input("Enter note message: ")
+
+            try:
+                new_note = add_note(ticket_id, author, message)
+                print(
+                    f"Note added successfully! "
+                    f"Note ID: {new_note['note_id']}"
+                )
+            except ValueError as error:
+                print(f"Error: {error}")
+
         elif choice == "0":
             try:
                 save_tickets(tickets)
@@ -608,4 +629,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
