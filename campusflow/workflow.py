@@ -200,7 +200,7 @@ def update_ticket_status(tickets, ticket_id, status):
 
 
 def get_priority_queue(tickets):
-    """Return open tickets sorted by priority and numeric ID."""
+    """Return open tickets sorted by priority, affected users, and ID."""
     priority_order = {
         "critical": 0,
         "high": 1,
@@ -214,12 +214,20 @@ def get_priority_queue(tickets):
         if normalize_status(ticket.get("status")) == "open"
     ]
 
+    def affected_users_count(ticket):
+        try:
+            return max(0, int(ticket.get("affected_users", 0)))
+        except (TypeError, ValueError):
+            return 0
+
     return sorted(
         open_tickets,
         key=lambda ticket: (
             priority_order.get(
-                str(ticket.get("priority", "")).strip().lower(), 4
+                str(ticket.get("priority", "")).strip().lower(),
+                4,
             ),
+            -affected_users_count(ticket),
             ticket_number(ticket),
         ),
     )
