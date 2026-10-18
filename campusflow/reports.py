@@ -57,9 +57,12 @@ def format_ticket(ticket):
         except (ValueError, TypeError):
             pass
 
+    BOLD = "\033[1m"
+    RESET = "\033[0m"
+
     lines = [
-        f"{ticket['id']} | "
-        f"{ticket['title']} | "
+        f"{BOLD}{ticket['id']}{RESET} | "
+        f"{BOLD}{ticket['title']}{RESET} | "
         f"{ticket['category']} | "
         f"urgency: {ticket['urgency']} | "
         f"priority: {ticket['priority']} | "
@@ -73,8 +76,8 @@ def format_ticket(ticket):
 
     if history:
         lines.append("")
-        lines.append("History:")
-
+        lines.append("\033[1mHistory:\033[0m")
+      
         for event in history:
             timestamp = event.get("timestamp", "Unknown time")
 
@@ -86,13 +89,14 @@ def format_ticket(ticket):
 
             action = event.get("action", "Unknown action")
             details = event.get("details", "")
-
+            
             lines.append(
-                f"  {timestamp} | "
-                f"{ticket['id']} | "
-                f"{action} | "
+                f"{ticket['id']:<6} | "
+                f"{timestamp:<23} | "
+                f"{action.replace('_', ' ').title():<16} | "
                 f"{details}"
             )
+
 
     return "\n".join(lines)
 

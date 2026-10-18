@@ -4,14 +4,19 @@ from campusflow.reports import format_report, format_ticket
 from campusflow.storage import DEFAULT_STORAGE_PATH, load_tickets, save_tickets
 from campusflow.tickets import create_ticket, calculate_priority
 from campusflow.staff import (
-    recommend_staff,
+    STAFF_MEMBERS,
     recommend_staff_options,
     summarize_staff_workload,
 )
 
 from campusflow.quiz import quiz
 from campusflow.notes import make_note_adder
-from campusflow.workflow import assign_ticket, update_ticket_status, search_tickets
+from campusflow.workflow import (
+    assign_ticket,
+    update_ticket_status,
+    search_tickets,
+    get_priority_queue,
+)
 
 
 def ask_positive_integer(prompt):
@@ -40,6 +45,78 @@ def show_tickets(tickets):
         print(format_ticket(ticket))
         print("-" * 80)
         print()
+
+
+def show_ticket_notes(tickets):
+    """Display all notes attached to a selected ticket."""
+
+    ticket_id = input("Enter ticket ID: ").strip().upper()
+
+    ticket = next(
+        (
+            item
+            for item in tickets
+            if str(item.get("id", "")).strip().upper()
+            == ticket_id
+        ),
+        None,
+    )
+
+    if ticket is None:
+        print(f"Ticket {ticket_id} was not found.")
+        return
+
+    notes = ticket.get("notes", [])
+
+    print("\n" + "=" * 60)
+    print(f"NOTES FOR TICKET {ticket['id']}")
+    print("=" * 60)
+
+    if not notes:
+        print("No notes have been added to this ticket yet.")
+        print("=" * 60)
+        return
+
+    for note in notes:
+        print(f"\nNote ID: {note.get('note_id', 'N/A')}")
+        print(f"Author:  {note.get('author', 'Unknown')}")
+        print(f"Message: {note.get('message', '')}")
+        print("-" * 60)
+
+    print(f"Total notes: {len(notes)}")
+    print("=" * 60)
+
+
+def show_priority_queue(tickets):
+    """Display open tickets ordered by priority and numeric ID."""
+    priority_queue = get_priority_queue(tickets)
+
+    print("\n===== TICKET PRIORITY QUEUE =====")
+
+    if not priority_queue:
+        print("No open tickets in the priority queue.")
+        return
+
+    print(f"{'No.':<5} {'Ticket ID':<12} {'Priority':<12} "
+          f"{'Category':<12} Title")
+    print("-" * 80)
+
+    for number, ticket in enumerate(priority_queue, start=1):
+        ticket_id = ticket.get("id", "Unknown")
+        priority = str(ticket.get("priority", "Unknown")).upper()
+        category = ticket.get("category", "Other")
+        title = ticket.get("title", "Untitled")
+
+        print(
+            f"{number:<5} "
+            f"{ticket_id:<12} "
+            f"{priority:<12} "
+            f"{category:<12} "
+            f"{title}"
+        )
+
+    print("-" * 80)
+    print(f"Total open tickets: {len(priority_queue)}")
 
 
 def create_ticket_from_prompt(tickets):
@@ -193,30 +270,69 @@ def create_ticket_from_prompt(tickets):
 
 
 def print_menu():
-    """Display the main menu."""
-    print("\n===== OD_REG CAMPUSFLOWNEXT TICKET MANAGER =====")
-    print("1. Create a ticket")
-    print("2. List all tickets")
-    print("3. Assign a ticket")
-    print("4. Update ticket status")
-    print("5. Show ticket report")
-    print("6. Save tickets")
-    print("7. Reload tickets")
-    print("8. Recommend staff")
-    print("9. Search tickets")
-    print("10. Show staff workload dashboard")
-    print("11. Take the campusFlow quiz")
-    print("12. Add a note to a ticket")
-    print("0. Save and exit")
+    """Display the main menu with bold headings and clear sections."""
+
+    BOLD = "\033[1m"
+    RESET = "\033[0m"
+
+    print()
+    print("=" * 60)
+    print(BOLD + "         OD_REG CAMPUSFLOWNEXT TICKET MANAGER" + RESET)
+    print("=" * 60)
+
+    print()
+    print(BOLD +"  TICKET MANAGEMENT" + RESET)
+    print("  " + "-" * 56)
+    print("   1.  Create a ticket")
+    print("   2.  View ticket priority queue")
+    print("   3.  List all tickets")
+    print("   4.  Search tickets")
+
+    print()
+    print(BOLD +"  TICKET OPERATIONS" + RESET)
+    print("  " + "-" * 56)
+    print("   5.  Assign a ticket")
+    print("   6.  Recommend a staff member")
+    print("   7.  Update ticket status")
+
+    print()
+    print(BOLD +"  FEEDBACK NOTES" + RESET)
+    print("  " + "-" * 56)
+    print("   8.  Add a feedback note")
+    print("   9.  View feedback notes")
+
+    print()
+    print(BOLD +"  REPORTS AND ANALYTICS" + RESET)
+    print("  " + "-" * 56)
+    print("  10.  Show ticket report")
+    print("  11.  Show staff workload dashboard")
+
+    print()
+    print(BOLD +"  LEARNING" + RESET)
+    print("  " + "-" * 56)
+    print("  12.  Take the CampusFlow quiz")
+
+    print()
+    print(BOLD +"  DATA MANAGEMENT" + RESET)
+    print("  " + "-" * 56)
+    print("  13.  Save tickets")
+    print("  14.  Reload tickets")
+
+    print()
+    print("-" * 60)
+    print("   0.  SAVE AND EXIT" + RESET)
+    print("=" * 60)
 
 
 def main():
+    """Run the CampusFlow ticket manager CLI."""
     try:
         tickets = load_tickets()
     except ValueError as exc:
         print(f"Could not load saved tickets: {exc}")
         print(
-            "Fix the data file before starting so saved data is not overwritten."
+            "Fix the data file before starting so saved data "
+            "is not overwritten."
         )
         return
 
@@ -231,20 +347,109 @@ def main():
         print_menu()
         choice = input("Choose an option: ").strip()
 
+        # 1. Create a ticket
         if choice == "1":
             create_ticket_from_prompt(tickets)
-
+        # 2. View ticket priority queue
         elif choice == "2":
-            show_tickets(tickets)
-
+            show_priority_queue(tickets)
+        # 3. List all tickets
         elif choice == "3":
+            show_tickets(tickets)
+        # 4. Search tickets
+        elif choice == "4":
+            valid_statuses = {
+                "open", "in_progress", "resolved", "closed",
+            }
+            valid_priorities = {
+                "critical", "high", "medium", "low",
+            }
+            valid_categories = {
+                "network", "hardware", "software", "other",
+            }
+
+            title_keyword = input("Input ticket title: ").strip()
+
+            if not title_keyword:
+                print("No keyword detected. Please enter a keyword.")
+                continue
+
+            input_status = input(
+                "Input preferred status (press Enter to skip): "
+            ).strip().casefold()
+
+            if input_status and input_status not in valid_statuses:
+                print(
+                    "Invalid status. Choose open, in_progress, "
+                    "resolved, or closed."
+                )
+                continue
+
+            input_priority = input(
+                "Input preferred priority (press Enter to skip): "
+            ).strip().casefold()
+
+            if input_priority and input_priority not in valid_priorities:
+                print(
+                    "Invalid priority. Choose critical, high, "
+                    "medium, or low."
+                )
+                continue
+
+            input_category = input(
+                "Input preferred category (press Enter to skip): "
+            ).strip().casefold()
+
+            if input_category and input_category not in valid_categories:
+                print(
+                    "Invalid category. Choose network, hardware, "
+                    "software, or other."
+                )
+                continue
+
+            input_assignee = input(
+                "Input assignee (press Enter to skip): "
+            ).strip()
+
+            if input_assignee:
+                valid_assignees = {
+                    member["name"].strip().casefold()
+                    for member in STAFF_MEMBERS
+                }
+
+                if input_assignee.casefold() not in valid_assignees:
+                    print(
+                        "Invalid assignee. Choose a recognized "
+                        "staff member."
+                    )
+                    continue
+
+                input_assignee = input_assignee.casefold()
+            else:
+                input_assignee = None
+
+            searched_tickets = search_tickets(
+                tickets,
+                title_keyword,
+                input_status or None,
+                input_priority or None,
+                input_category or None,
+                input_assignee,
+            )
+
+            if searched_tickets:
+                show_tickets(searched_tickets)
+            else:
+                print(
+                    f"No tickets found matching '{title_keyword}'."
+                )
+        # 5. Assign a ticket
+        elif choice == "5":
             ticket_id = input("Ticket ID: ").strip()
 
-            # Find the ticket before asking for a staff member.
             ticket = next(
                 (
-                    item
-                    for item in tickets
+                    item for item in tickets
                     if str(item.get("id", "")).strip().upper()
                     == ticket_id.upper()
                 ),
@@ -255,8 +460,9 @@ def main():
                 print(f"Ticket {ticket_id.upper()} was not found.")
                 continue
 
-            # Resolved and closed tickets cannot be reassigned.
-            status = str(ticket.get("status", "")).strip().lower()
+            status = str(
+                ticket.get("status", "")
+            ).strip().lower()
 
             if status in {"resolved", "closed"}:
                 print(
@@ -270,7 +476,6 @@ def main():
                 ticket.get("assigned_to") or ""
             ).strip()
 
-            # Ask for confirmation if a staff member is already assigned.
             if current_assignee:
                 print(
                     f"\nTicket {ticket['id']} is already assigned "
@@ -283,13 +488,11 @@ def main():
 
                 if answer not in {"y", "yes"}:
                     print(
-                        f"Assignment unchanged. "
-                        f"{ticket['id']} remains assigned to "
-                        f"{current_assignee}."
+                        f"Assignment unchanged. {ticket['id']} "
+                        f"remains assigned to {current_assignee}."
                     )
                     continue
 
-            # Ask for the staff member only when assignment is proceeding.
             assignee = input("Assign to (name): ").strip()
 
             try:
@@ -315,57 +518,17 @@ def main():
 
             except ValueError as exc:
                 print(exc)
-
-        elif choice == "4":
-            ticket_id = input("Ticket ID: ").strip()
-            status = input(
-                "New status (open/in_progress/resolved/closed): "
-            ).strip()
-
-            try:
-                ticket = update_ticket_status(
-                    tickets,
-                    ticket_id,
-                    status,
-                )
-                print(f"{ticket['id']} status is now {ticket['status']}.")
-            except ValueError as exc:
-                print(exc)
-
-        elif choice == "5":
-            print(format_report(tickets))
-
+        # 6. Recommend a staff member
         elif choice == "6":
-            try:
-                save_tickets(tickets)
-                print(
-                    f"Saved {len(tickets)} ticket(s) "
-                    f"to {DEFAULT_STORAGE_PATH}."
-                )
-            except OSError as exc:
-                print(f"Could not save tickets: {exc}")
-
-        elif choice == "7":
-            try:
-                reloaded = load_tickets()
-            except ValueError as exc:
-                print(f"Could not reload tickets: {exc}")
-            else:
-                tickets = reloaded
-                add_note = make_note_adder(tickets)
-                print(
-                    f"Reloaded {len(tickets)} ticket(s). "
-                    "Unsaved changes, if any, were discarded."
-                )
-
-        elif choice == "8":
-            ticket_id = input("Enter the ticket ID: ").strip().upper()
+            ticket_id = input(
+                "Enter the ticket ID: "
+            ).strip().upper()
 
             ticket = next(
                 (
-                    item
-                    for item in tickets
-                    if str(item.get("id", "")).upper() == ticket_id
+                    item for item in tickets
+                    if str(item.get("id", "")).strip().upper()
+                    == ticket_id
                 ),
                 None,
             )
@@ -374,7 +537,9 @@ def main():
                 print(f"Ticket {ticket_id} was not found.")
                 continue
 
-            if ticket.get("status") in {"resolved", "closed"}:
+            if str(ticket.get("status", "")).lower() in {
+                "resolved", "closed",
+            }:
                 print("This ticket is already resolved or closed.")
                 continue
 
@@ -400,7 +565,7 @@ def main():
                     recommendations,
                     start=1,
                 ):
-                    print(f"{index}. {staff['name']}")
+                    print(f"{index}. \033[1m{staff['name']}\033[0m")
                     print(f"   Speciality: {staff['speciality']}")
                     print(f"   Active Tickets: {staff['active']}")
                     print(f"   Status: {staff['status']}")
@@ -411,197 +576,130 @@ def main():
                     print()
 
                 print(
-                    "To assign a staff member, select menu option 3."
+                    "To assign a staff member, select menu option 5."
                 )
-
-        elif choice == "9":
-            valid_statuses = {
-                "open",
-                "in_progress",
-                "resolved",
-                "closed",
-            }
-
-            valid_priorities = {
-                "critical",
-                "high",
-                "medium",
-                "low",
-            }
-
-            valid_categories = {
-                "network",
-                "hardware",
-                "software",
-                "other",
-            }
-
-            title_keyword = input("Input ticket title: ").strip()
-
-            if not title_keyword:
-                print("No keyword detected. Please enter a keyword.")
-                continue
-
-            input_status = input(
-                "Input preferred status (press Enter to skip): "
+        # 7. Update ticket status
+        elif choice == "7":
+            ticket_id = input("Ticket ID: ").strip()
+            status = input(
+                "New status (open/in_progress/resolved/closed): "
             ).strip()
 
-            if input_status:
-                input_status = input_status.casefold()
-
-                if input_status not in valid_statuses:
-                    print(
-                        "Invalid status. Choose open, in_progress, "
-                        "resolved, or closed."
-                    )
-                    continue
-            else:
-                input_status = None
-
-            input_priority = input(
-                "Input preferred priority (press Enter to skip): "
-            ).strip()
-
-            if input_priority:
-                input_priority = input_priority.casefold()
-
-                if input_priority not in valid_priorities:
-                    print(
-                        "Invalid priority. Choose critical, high, "
-                        "medium, or low."
-                    )
-                    continue
-            else:
-                input_priority = None
-
-            input_category = input(
-                "Input preferred category (press Enter to skip): "
-            ).strip()
-
-            if input_category:
-                input_category = input_category.casefold()
-
-                if input_category not in valid_categories:
-                    print(
-                        "Invalid category. Choose network, hardware, "
-                        "software, or other."
-                    )
-                    continue
-            else:
-                input_category = None
-
-            input_assignee = input(
-                "Input assignee (press Enter to skip): "
-            ).strip()
-
-            if input_assignee:
-                from campusflow.staff import STAFF_MEMBERS
-
-                valid_assignees = {
-                    member["name"].strip().casefold()
-                    for member in STAFF_MEMBERS
-                }
-
-                if input_assignee.casefold() not in valid_assignees:
-                    print(
-                        "Invalid assignee. Choose a recognized "
-                        "staff member."
-                    )
-                    continue
-
-                input_assignee = input_assignee.casefold()
-            else:
-                input_assignee = None
-
-            searched_tickets = search_tickets(
-                tickets,
-                title_keyword,
-                input_status,
-                input_priority,
-                input_category,
-                input_assignee,
-            )
-
-            if searched_tickets:
-                show_tickets(searched_tickets)
-            else:
+            try:
+                ticket = update_ticket_status(
+                    tickets,
+                    ticket_id,
+                    status,
+                )
                 print(
-                    f"No tickets found matching '{title_keyword}'."
+                    f"{ticket['id']} status is now "
+                    f"{ticket['status']}."
                 )
-
-        elif choice == "10":
-            summary = summarize_staff_workload(tickets)
-
-            print(
-                "\n===== STAFF WORKLOAD & PERFORMANCE DASHBOARD ====="
-            )
-
-            print(
-                f"{'Staff Member':<25} "
-                f"{'Speciality':<12} "
-                f"{'Status':<15} "
-                f"{'Active Tickets (Count: IDs)':<32} "
-                f"{'Resolved/Closed Tickets (Count: IDs)'}"
-            )
-
-            print("-" * 130)
-
-            for staff in summary["staff"]:
-                availability = staff["status"]
-
-                active_ids = ", ".join(
-                    staff["active_ticket_ids"]
-                )
-
-                resolved_closed_ids = ", ".join(
-                    staff["resolved_closed_ticket_ids"]
-                )
-
-                active_display = (
-                    f"{staff['active']} ({active_ids})"
-                    if active_ids
-                    else "0"
-                )
-
-                resolved_closed_display = (
-                    f"{staff['resolved_closed']} "
-                    f"({resolved_closed_ids})"
-                    if resolved_closed_ids
-                    else "0"
-                )
-
-                print(
-                    f"{staff['name']:<25} "
-                    f"{staff['speciality']:<12} "
-                    f"{availability:<15} "
-                    f"{active_display:<32} "
-                    f"{resolved_closed_display}"
-                )
-
-            print("-" * 130)
-
-            print(
-                f"Unassigned active tickets: "
-                f"{summary['unassigned']}"
-            )
-
-        elif choice == "11":
-            quiz()
-
-        elif choice == "12":
+            except ValueError as exc:
+                print(exc)
+        # 8. Add a feedback note
+        elif choice == "8":
             ticket_id = input("Enter ticket ID: ").strip()
             author = input("Enter your name: ").strip()
-            message = input("Enter note message: ")
+            message = input("Enter feedback note: ")
 
             try:
                 new_note = add_note(ticket_id, author, message)
                 print(
-                    f"Note added successfully! "
+                    f"Feedback note added successfully! "
                     f"Note ID: {new_note['note_id']}"
                 )
-            except ValueError as error:
-                print(f"Error: {error}")
+            except ValueError as exc:
+                print(f"Error: {exc}")
+        # 9. View feedback notes
+        elif choice == "9":
+            show_ticket_notes(tickets)
+        # 10. Show ticket report
+        elif choice == "10":
+            print(format_report(tickets))
+        # 11. Show staff workload dashboard    
+        elif choice == "11":
+            summary = summarize_staff_workload(tickets)
 
+            print("\n" + "=" * 70)
+            print("       STAFF WORKLOAD & PERFORMANCE DASHBOARD")
+            print("=" * 70)
+
+            for staff in summary["staff"]:
+                active_ids = ", ".join(
+                    staff["active_ticket_ids"]
+                )
+                resolved_ids = ", ".join(
+                    staff["resolved_closed_ticket_ids"]
+                )
+
+                
+                print(f"\nStaff Member: \033[1m{staff['name']}\033[0m")
+                print(f"{'Speciality:':<16} {staff['speciality']}")
+                print(f"{'Availability:':<16} {staff['status']}")
+
+                print("-" * 50)
+                print(f"{'Active Tickets:':<20} {staff['active']}")
+                print(f"{'Open:':<20} {staff['open']}")
+                print(f"{'In Progress:':<20} {staff['in_progress']}")
+                print(f"{'Ticket IDs:':<20} {active_ids or 'None'}")
+
+                print(
+                    f"{'Completed Tickets:':<20} "
+                    f"{staff['resolved_closed']}"
+                )
+                print(f"{'Ticket IDs:':<20} {resolved_ids or 'None'}")
+                print("-" * 50)
+
+
+            print("\n" + "=" * 70)
+            print(
+                "UNASSIGNED ACTIVE TICKETS: "
+                f"{summary['unassigned']}"
+            )
+            print("=" * 70)
+
+            for ticket in summary["unassigned_tickets"]:
+                print(
+                    f"\n{ticket.get('id', 'Unknown')} | "
+                    f"{ticket.get('title', 'Untitled')}"
+                )
+                print(
+                    f"  Category: {ticket.get('category', 'Unknown')}"
+                )
+                print(
+                    f"  Priority: {ticket.get('priority', 'Unknown')}"
+                )
+                print(
+                    f"  Status: {ticket.get('status', 'Unknown')}"
+                )
+        # 12. Take the CampusFlow quiz
+        elif choice == "12":
+            quiz()
+        # 13. Save tickets
+        elif choice == "13":
+            try:
+                save_tickets(tickets)
+                print(
+                    f"Saved {len(tickets)} ticket(s) "
+                    f"to {DEFAULT_STORAGE_PATH}."
+                )
+            except OSError as exc:
+                print(f"Could not save tickets: {exc}")
+        # 14. Reload tickets
+        elif choice == "14":
+            try:
+                reloaded = load_tickets()
+            except ValueError as exc:
+                print(f"Could not reload tickets: {exc}")
+            else:
+                tickets = reloaded
+                add_note = make_note_adder(tickets)
+                print(
+                    f"Reloaded {len(tickets)} ticket(s). "
+                    "Unsaved changes, if any, were discarded."
+                )
+        # 0. Save and exit
         elif choice == "0":
             try:
                 save_tickets(tickets)
@@ -614,7 +712,6 @@ def main():
 
                 if answer != "y":
                     continue
-
             else:
                 print(
                     f"Saved {len(tickets)} ticket(s). "

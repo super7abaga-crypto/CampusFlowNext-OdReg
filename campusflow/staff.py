@@ -51,12 +51,7 @@ STAFF_MEMBERS = [
         "speciality": "Software",
         "available": True,
     },
-    {
-        "name": "Ms. Queen",
-        "speciality": "Software",
-        "available": True,
-    },
-
+    
     # Other support
     {
         "name": "Mr. Wealth",
@@ -157,6 +152,7 @@ def recommend_staff(ticket, tickets, staff_members=None):
     )
 
 
+
 def summarize_staff_workload(tickets, staff_members=None):
     """Summarize staff workload and calculate availability status."""
     if staff_members is None:
@@ -224,18 +220,20 @@ def summarize_staff_workload(tickets, staff_members=None):
             ],
         })
 
-    unassigned = sum(
-        1
+    unassigned_tickets = [
+        ticket
         for ticket in tickets
         if not normalize_name(ticket.get("assigned_to"))
         and normalize_status(ticket.get("status"))
         not in INACTIVE_STATUSES
-    )
+    ]
 
     return {
         "staff": staff_summary,
-        "unassigned": unassigned,
+        "unassigned": len(unassigned_tickets),
+        "unassigned_tickets": unassigned_tickets,
     }
+
 
 
 def recommend_staff_options(ticket, tickets, staff_members=None):
