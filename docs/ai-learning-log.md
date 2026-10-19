@@ -52,3 +52,19 @@ Keep entries honest: record what we actually asked, tested, changed, and learned
 # Team Reflection
 
 - **Most useful concept learned:** Separating business logic from CLI input/output so the core ticket operations can be tested independently.
+
+- ## Entry 5 — Git Merge Conflicts and Integration
+
+- **Date:** October 19, 2026
+- **Engineer(s):** Engineer B — REGINA CHIJIOKE
+- **Problem or question:** How can we integrate changes from `main` into our feature branch when both branches have modified the same files?
+
+- **Explanation or resource used:** AI-guided explanation of Git merge conflicts, conflict markers, branch integration, and the importance of testing after resolving conflicts.
+
+- **What we understood in our own words:** A merge conflict occurs when Git cannot automatically determine how to combine changes from different branches. Conflict markers such as `<<<<<<<`, `=======`, and `>>>>>>>` show the sections that need attention. Resolving a conflict means reviewing both versions and deciding which changes to keep or combine. After resolving conflicts, we must stage the files and create a merge commit to complete the merge.
+
+- **What we changed:** Reviewed the conflicts in `main.py` and `campusflow/staff.py`. Combined the necessary imports and preserved the existing functionality, including staff recommendations, the CampusFlow quiz, and ticket notes. Removed the conflict markers from the resolved sections.
+
+- **How we tested it:** Checked Git's status to confirm that all conflicts were resolved and that the repository was still in the merging state. Attempted to run the tests using `python3 -m pytest`, but the command could not run because `pytest` was not installed. We then identified Python's built-in `unittest` framework as an alternative for running the project's tests.
+
+- **What we would do differently next time:** Check the branch history and run the available tests before merging. After resolving conflicts, review the combined changes, run the tests, and verify the final Git status before pushing the branch.
