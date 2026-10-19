@@ -67,3 +67,28 @@ Notes can only be added to tickets with status `open` or `in_progress`.
 The function automatically generates the next unique note ID, such as `N001`, `N002`, `N003`, etc.
 
 If the input is invalid, the function raises `ValueError` and does not modify the ticket collection.
+
+
+CampusFlowNext — New Feature Design Decisions (Engineer B - REGINA CHIJIOKE)
+1. Ticket Notes
+Notes will be stored inside each ticket as a list of dictionaries. Each note will contain a unique note ID, an author, and a message. The make_note_adder(tickets) function will create an add_note(ticket_id, author, message) function that can be used to add notes to tickets.
+
+Notes can only be added to tickets with open or in_progress status. Note messages must contain between 5 and 300 characters after trimming whitespace. Invalid note attempts will raise ValueError without modifying the ticket collection or consuming a note ID.
+2. Staff Recommendation
+The staff recommendation feature will suggest suitable staff members based on the ticket category, staff availability, and current workload. Available staff members with the appropriate speciality will be considered for recommendation. Staff members who are unavailable or have reached the busy threshold will not be recommended.
+
+Recommendations will prioritize eligible staff members with lower active workloads. This helps distribute tickets more effectively and prevents already busy staff members from receiving additional recommendations.
+3. Staff Workload Dashboard
+The staff workload dashboard will summarize each staff member's current workload using the existing ticket collection. It will display staff names, specialities, availability status, active ticket counts and IDs, and resolved or closed ticket counts and IDs.
+
+The dashboard will also show the number of unassigned active tickets. It will provide a read-only overview of workload distribution without modifying tickets or assignments.
+4. Ticket Search
+The ticket search feature will allow users to find tickets by title keyword and optionally filter the results by status, priority, category, and assignee.
+
+Title matching will be case-insensitive. When multiple filters are provided, they will be combined using AND logic, meaning a ticket must satisfy every selected filter to appear in the results. Empty optional filters will be ignored, while invalid filter values will be rejected.
+
+The search feature will return matching tickets without modifying the original ticket collection.
+5. CampusFlow Quiz
+The CampusFlow quiz feature will provide an interactive way for users to check their understanding of the application's concepts and behaviour. It will be accessible through a dedicated CLI menu option and will operate separately from the core ticket-management workflow.
+
+Keeping the quiz in its own module makes it easier to maintain and update without unnecessarily changing the ticket-management logic.
