@@ -3,7 +3,12 @@
 from campusflow.reports import format_report, format_ticket
 from campusflow.storage import DEFAULT_STORAGE_PATH, load_tickets, save_tickets
 from campusflow.tickets import create_ticket, calculate_priority
-from campusflow.notifications import send_new_ticket_notification
+from campusflow.notifications import (
+    send_new_ticket_notification,
+    send_assignment_notification,
+    send_status_notification,
+    send_feedback_note_notification,
+)
 from campusflow.staff import (
     STAFF_MEMBERS,
     recommend_staff_options,
@@ -381,12 +386,15 @@ def main():
         # 1. Create a ticket
         if choice == "1":
             create_ticket_from_prompt(tickets)
+            
         # 2. View ticket priority queue
         elif choice == "2":
             show_priority_queue(tickets)
+
         # 3. List all tickets
         elif choice == "3":
             show_tickets(tickets)
+
         # 4. Search tickets
         elif choice == "4":
             valid_statuses = {
@@ -474,6 +482,7 @@ def main():
                 print(
                     f"No tickets found matching '{title_keyword}'."
                 )
+
         # 5. Assign a ticket
         elif choice == "5":
             ticket_id = input("Ticket ID: ").strip()
@@ -526,6 +535,7 @@ def main():
 
             assignee = input("Assign to (name): ").strip()
 
+            
             try:
                 ticket = assign_ticket(tickets, ticket_id, assignee)
 
@@ -547,8 +557,24 @@ def main():
                         f"to {ticket['assigned_to']}."
                     )
 
+                try:
+                    save_tickets(tickets)
+                except OSError as exc:
+                    print(
+                        f"Warning: assignment could not be saved: {exc}"
+                    )
+
+                try:
+                    send_assignment_notification(ticket)
+                    print("Assignment email sent to the staff member.")
+                except Exception as exc:
+                    print(
+                        f"Warning: assignment email was not sent: {exc}"
+                    )
+
             except ValueError as exc:
                 print(exc)
+
         # 6. Recommend a staff member
         elif choice == "6":
             ticket_id = input(
@@ -609,6 +635,7 @@ def main():
                 print(
                     "To assign a staff member, select menu option 5."
                 )
+        
         # 7. Update ticket status
         elif choice == "7":
             ticket_id = input("Ticket ID: ").strip()
@@ -616,19 +643,58 @@ def main():
                 "New status (open/in_progress/resolved/closed): "
             ).strip()
 
+            ticket_before = next(
+                (
+                    item for item in tickets
+                    if str(item.get("id", "")).strip().upper()
+                    == ticket_id.upper()
+                ),
+                None,
+            )
+
+            if ticket_before is None:
+                print(f"Ticket {ticket_id.upper()} was not found.")
+                continue
+
+            previous_status = ticket_before.get("status", "unknown")
+
             try:
                 ticket = update_ticket_status(
                     tickets,
                     ticket_id,
                     status,
                 )
+
                 print(
                     f"{ticket['id']} status is now "
                     f"{ticket['status']}."
                 )
+
+                if ticket["status"] != previous_status:
+                    try:
+                        save_tickets(tickets)
+                    except OSError as exc:
+                        print(
+                            f"Warning: status change could not be saved: {exc}"
+                        )
+
+                    try:
+                        send_status_notification(
+                            ticket,
+                            previous_status,
+                        )
+                        print(
+                            "Status notification sent to central support."
+                        )
+                    except Exception as exc:
+                        print(
+                            f"Warning: status email was not sent: {exc}"
+                        )
+
             except ValueError as exc:
                 print(exc)
-        # 8. Add a feedback note
+
+                # 8. Add a feedback note
         elif choice == "8":
             ticket_id = input("Enter ticket ID: ").strip()
             author = input("Enter your name: ").strip()
@@ -636,12 +702,39 @@ def main():
 
             try:
                 new_note = add_note(ticket_id, author, message)
+
                 print(
                     f"Feedback note added successfully! "
                     f"Note ID: {new_note['note_id']}"
                 )
+
+                try:
+                    save_tickets(tickets)
+                except OSError as exc:
+                    print(
+                        f"Warning: feedback note could not be saved: {exc}"
+                    )
+
+                try:
+                    ticket = next(
+                        item for item in tickets
+                        if str(item.get("id", "")).strip().upper()
+                        == ticket_id.upper()
+                    )
+
+                    send_feedback_note_notification(ticket, new_note)
+                    print(
+                        "Feedback notification sent to central support."
+                    )
+
+                except Exception as exc:
+                    print(
+                        f"Warning: feedback email was not sent: {exc}"
+                    )
+
             except ValueError as exc:
                 print(f"Error: {exc}")
+
         # 9. View feedback notes
         elif choice == "9":
             show_ticket_notes(tickets)

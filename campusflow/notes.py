@@ -1,5 +1,6 @@
 """Validation and creation of ticket notes."""
 
+from datetime import datetime
 
 def generate_note_id(tickets):
     """Return the next note ID across the ticket collection."""
@@ -92,10 +93,13 @@ def make_note_adder(tickets):
                 raise ValueError("Ticket contains an invalid note ID.")
 
         new_note = {
-            "note_id": generate_note_id(tickets),
-            "author": author,
-            "message": message,
-        }
+    "note_id": generate_note_id(tickets),
+    "author": author,
+    "message": message,
+    "timestamp": datetime.now().astimezone().isoformat(
+        timespec="seconds"
+    ),
+}
 
         notes.append(new_note)
         return new_note
