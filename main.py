@@ -3,6 +3,7 @@
 from campusflow.reports import format_report, format_ticket
 from campusflow.storage import DEFAULT_STORAGE_PATH, load_tickets, save_tickets
 from campusflow.tickets import create_ticket, calculate_priority
+from campusflow.notifications import send_new_ticket_notification
 from campusflow.staff import (
     STAFF_MEMBERS,
     recommend_staff_options,
@@ -193,6 +194,7 @@ def create_ticket_from_prompt(tickets):
 
         choice = input("Choose an option: ").strip()
 
+        
         if choice == "1":
             try:
                 ticket = create_ticket(
@@ -206,11 +208,40 @@ def create_ticket_from_prompt(tickets):
                 print(f"Could not create ticket: {exc}")
                 return
 
-            print("\nTicket created successfully!")
+            # Save the ticket before attempting email notification.
+            try:
+                save_tickets(tickets, DEFAULT_STORAGE_PATH)
+            except Exception as exc:
+                print(
+                    "\nWarning: The ticket was created in memory, "
+                    "but saving it to disk failed."
+                )
+                print(f"Save error: {exc}")
+                print(
+                    "Do not close the application until the ticket "
+                    "has been saved successfully."
+                )
+                return
+
+            print("\nTicket created and saved successfully!")
             print("-" * 60)
             print(format_ticket(ticket))
             print("-" * 60)
+
+            # Email failure must not undo ticket creation.
+            try:
+                send_new_ticket_notification(ticket)
+            except Exception as exc:
+                print(
+                    "\nWARNING: The ticket was saved, but the "
+                    "email notification could not be sent."
+                )
+                print(f"Reason: {exc}")
+            else:
+                print("Email notification sent to the support inbox.")
+
             return
+
 
         elif choice == "2":
             while True:
